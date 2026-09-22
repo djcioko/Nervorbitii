@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Nervobiții</title>
+  <style>
+    :root{--bg:#0c0a07;--panel:#16120c;--gold:#d4b56a;--gold2:#f0e0a8;--red:#c1392b;--text:#f4ead4;--muted:#b7a88a;--line:#2a2318}
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%;background:var(--bg);color:var(--text);font-family:Georgia,serif}
+    button,input{font-family:inherit}
+    .app{max-width:430px;margin:0 auto;min-height:100%;background:linear-gradient(#1a140c,#0c0a07);position:relative}
+    .topbar{display:flex;justify-content:space-between;padding:14px 16px 8px;border-bottom:1px solid var(--line)}
+    .logo{letter-spacing:.18em;font-size:13px;color:var(--gold2)}
+    .screen{display:none;padding:12px 14px 96px}
+    .screen.active{display:block}
+    h1{font-size:22px;color:var(--gold2);margin:8px 0 6px;font-weight:500}
+    h2{font-size:16px;color:var(--gold2);margin:10px 0;font-weight:500}
+    .muted{color:var(--muted);font-size:13px;line-height:1.4}
+    .hero{width:100%;height:210px;object-fit:cover;border-radius:14px;border:1px solid #5a4630;margin:10px 0;background:#2a1c10}
+    .btn{display:inline-flex;align-items:center;justify-content:center;border:1px solid #6a542e;background:linear-gradient(#3a2c18,#24190d);color:var(--gold2);padding:10px 14px;border-radius:10px;cursor:pointer}
+    .btn.primary{background:linear-gradient(#7a5a22,#4a3512);width:100%;margin-top:8px}
+    .btn.danger{border-color:#7a2a22;color:#f3c2bc}
+    .btn.green{border-color:#2d6a3c;color:#b6f0c6}
+    .btn.full{width:100%}
+    .btn.on{outline:2px solid #2ecc71}
+    .row{display:flex;gap:8px}
+    .row .btn{flex:1}
+    .field{margin:8px 0}
+    .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+    .field input{width:100%;background:#110e0a;border:1px solid #3d3222;color:var(--text);padding:10px;border-radius:8px}
+    .seats{display:grid;grid-template-columns:repeat(15,1fr);gap:3px;background:#120e0a;padding:10px;border-radius:12px;border:1px solid var(--line)}
+    .seat{aspect-ratio:1;border-radius:3px;background:#1f7a45;cursor:pointer;border:0}
+    .seat.ocupat{background:#9b2b22;cursor:default}
+    .seat.me{outline:2px solid #7ecbff}
+    .legend{display:flex;gap:12px;font-size:12px;color:var(--muted);margin:8px 0}
+    .dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:4px}
+    .dot.g{background:#1f7a45}.dot.r{background:#9b2b22}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;margin:8px 0}
+    .queue-item{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #2a2116;font-size:14px}
+    .studio{position:relative;width:100%;aspect-ratio:9/16;max-height:64vh;background:#000;border-radius:16px;overflow:hidden;border:1px solid #5a4630}
+    .studio canvas,.studio video.raw{width:100%;height:100%;object-fit:cover}
+    .studio video.raw{position:absolute;opacity:0;pointer-events:none}
+    .overlay{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;padding:10px;pointer-events:none}
+    .overlay *{pointer-events:auto}
+    .count{text-align:center;font-size:72px;color:#fff;text-shadow:0 4px 20px #000}
+    .tools{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+    .tools .btn{font-size:12px;padding:8px}
+    .rec-wrap{display:flex;justify-content:center;padding:6px}
+    .rec-btn{width:68px;height:68px;border-radius:50%;border:4px solid #fff;background:var(--red);cursor:pointer}
+    .rec-btn.rec{background:#fff;border-color:var(--red);border-radius:16px;width:42px;height:42px}
+    .timer{text-align:center;color:#fff;font-size:14px}
+    .gifts{display:flex;justify-content:space-around;background:#000000aa;border-radius:12px;padding:8px}
+    .gift{text-align:center;font-size:11px;color:#fff;cursor:pointer}
+    .gift span{font-size:22px;display:block}
+    .nav{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:430px;display:grid;grid-template-columns:repeat(4,1fr);background:#120e0acc;border-top:1px solid var(--line)}
+    .nav button{background:none;border:0;color:var(--muted);padding:12px 4px 16px;font-size:11px;cursor:pointer}
+    .nav button.active{color:var(--gold2)}
+    .toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:#2a2116;color:var(--gold2);padding:8px 14px;border-radius:20px;font-size:13px;display:none;z-index:9}
+    .chip{font-size:11px;border:1px solid #5a4630;border-radius:99px;padding:3px 8px;color:var(--gold)}
+    .actions{display:flex;gap:8px;margin-top:8px}
+    .actions button{flex:1;background:none;border:1px solid #3d3222;color:var(--text);border-radius:8px;padding:8px;cursor:pointer}
+    .warn{font-size:11px;color:#c9b48a;margin-top:8px}
+    video.preview{width:100%;border-radius:12px;background:#000;max-height:360px}
+  </style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar"><div class="logo">NERVOBIȚII</div><div class="chip" id="userChip">vizitator</div></header>
+
+  <section id="home" class="screen active">
+    <h1>Tribuna virtuală</h1>
+    <p class="muted">Pamflet. Nu este Camera Deputaților. Max 3 minute la cuvânt.</p>
+    <img class="hero" src="assets/sala.jpg" alt="Sala" />
+    <button class="btn primary" data-go="seats">300 de locuri</button>
+    <button class="btn full" data-go="studio">Prezidiu / filmare</button>
+    <p class="warn">Scenă fictivă. Satiră. AI Crop și Remove BG se activează doar dacă le pornești.</p>
+  </section>
+
+  <section id="seats" class="screen">
+    <h2>300 de locuri</h2>
+    <div class="legend"><span><i class="dot g"></i>liber</span><span><i class="dot r"></i>ocupat</span></div>
+    <div class="seats" id="seatGrid"></div>
+    <div class="card"><h2>Ordine prezidiu</h2><div id="queueList"></div></div>
+    <div class="card" id="reserveBox" style="display:none">
+      <h2>Rezervi locul <span id="selSeat"></span></h2>
+      <div class="field"><label>Nume</label><input id="nume" /></div>
+      <div class="field"><label>Oraș</label><input id="oras" /></div>
+      <button class="btn primary" id="btnReserve">Rezervă cu Pălăria</button>
+    </div>
+  </section>
+
+  <section id="studio" class="screen">
+    <h2>Prezidiu</h2>
+    <div class="studio">
+      <video id="cam" class="raw" playsinline muted></video>
+      <canvas id="stage"></canvas>
+      <div class="overlay">
+        <div><div class="timer" id="recTimer">00:00 / 03:00</div><div class="count" id="count"></div></div>
+        <div>
+          <div class="gifts">
+            <div class="gift" data-gift="trandafiri"><span>🌹</span>10 trandafiri</div>
+            <div class="gift" data-gift="gogoasa"><span>🍩</span>gogoașă</div>
+            <div class="gift" data-gift="palarie"><span>🎩</span>pălărie</div>
+          </div>
+          <div class="rec-wrap"><button class="rec-btn" id="recBtn"></button></div>
+        </div>
+      </div>
+    </div>
+    <div class="tools">
+      <button class="btn on" id="btnMic">🎙 Mic ON</button>
+      <button class="btn" id="btnCrop">AI Crop OFF</button>
+      <button class="btn" id="btnBg">Remove BG OFF</button>
+      <button class="btn" id="btnMask">Masca: Anonim</button>
+      <button class="btn" id="btnBody">Corp: Om</button>
+      <button class="btn" id="btnPrivacy">Privacy: Invizibil</button>
+      <button class="btn" id="btnUpload">Upload mască</button>
+      <button class="btn" id="btnAiMask">AI mască</button>
+      <button class="btn" id="btnLink">Link GIF/PNG</button>
+      <button class="btn" id="btnCam">Alege cameră</button>
+    </div>
+    <input type="file" id="fileMask" accept="image/*" hidden />
+    <p class="muted" id="cropStatus">AI Crop: oprit. Când e ON, urmărește fața și te pune pe tribună.</p>
+  </section>
+
+  <section id="preview" class="screen">
+    <h2>Înregistrare finalizată</h2>
+    <video id="previewVid" class="preview" controls></video>
+    <div class="field"><label>Titlu</label><input id="titlu" placeholder="Propunerea ta" /></div>
+    <div class="row">
+      <button class="btn green full" id="btnPublish">Publică</button>
+      <button class="btn danger full" id="btnDelete">Șterge</button>
+    </div>
+  </section>
+
+  <section id="feed" class="screen">
+    <h2>Propuneri</h2>
+    <div id="feedList"></div>
+  </section>
+
+  <nav class="nav">
+    <button data-go="home" class="active">Acasă</button>
+    <button data-go="seats">Locuri</button>
+    <button data-go="studio">Tribună</button>
+    <button data-go="feed">Clipuri</button>
+  </nav>
+  <div class="toast" id="toast"></div>
+</div>
+
+<script type="module">
+import { FaceDetector, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm";
+
+const TOTAL = 300, MAX = 180;
+const MASKS = ["Anonim","Deputat","Dac","Bufon","Marmură"];
+const BODIES = ["Om","Alien","Dac","Spartan","Rege","Om de paie"];
+const PRIVACY = ["Invizibil","Față+mască","Față reală"];
+const seed = [
+  {loc:7,nume:"Andrei Vasilescu",oras:"Iași",gift:"trandafiri",propunere:"Legea drumurilor județene"},
+  {loc:18,nume:"Elena Marin",oras:"București",gift:"gogoasa",propunere:"Taxe pentru tineri"},
+  {loc:102,nume:"Mihai Stan",oras:"Timișoara",gift:"gogoasa",propunere:"Spitale fără cozi"},
+  {loc:201,nume:"Ioana Radu",oras:"Constanța",gift:"palarie",propunere:"Protecția litoralului"},
+  {loc:299,nume:"Gheorghe Popa",oras:"Brașov",gift:"palarie",propunere:"Pădurile din Carpați"}
+];
+const rank = {trandafiri:3,gogoasa:2,palarie:1};
+const S = {
+  seats:{}, me: JSON.parse(localStorage.getItem("nervo_me")||"null"),
+  clips: JSON.parse(localStorage.getItem("nervo_clips")||"null") || [
+    {titlu:"Legea drumurilor județene",autor:"Andrei Vasilescu",inimi:12,voturi:8,don:3},
+    {titlu:"Taxe pentru tineri",autor:"Elena Marin",inimi:9,voturi:5,don:1}
+  ],
+  mask:0,body:0,privacy:0,mic:true,removeBg:false,aiCrop:false,
+  overlayImg:null,recording:false,recStart:0,stream:null,recorder:null,chunks:[],blobUrl:null,selected:null,
+  face:{x:.5,y:.4,w:.45,h:.55}, detector:null
+};
+seed.forEach(d => S.seats[d.loc]=d);
+Object.assign(S.seats, JSON.parse(localStorage.getItem("nervo_seats")||"{}"));
+
+const $ = id => document.getElementById(id);
+const toast = t => { const e=$("toast"); e.textContent=t; e.style.display="block"; setTimeout(()=>e.style.display="none",2200); };
+
+function go(id){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  $(id).classList.add("active");
+  document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("active", b.dataset.go===id));
+  if(id==="studio") startCam();
+  if(id==="seats") renderSeats();
+  if(id==="feed") renderFeed();
+}
+document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.go)));
+
+function save(){
+  localStorage.setItem("nervo_me", JSON.stringify(S.me));
+  localStorage.setItem("nervo_seats", JSON.stringify(Object.fromEntries(Object.entries(S.seats).filter(([k])=>!seed.find(d=>String(d.loc)===String(k))))));
+  localStorage.setItem("nervo_clips", JSON.stringify(S.clips));
+  $("userChip").textContent = S.me ? `${S.me.nume} · loc ${S.me.loc}` : "vizitator";
+}
+save();
+
+function renderSeats(){
+  const g=$("seatGrid"); g.innerHTML="";
+  for(let i=1;i<=TOTAL;i++){
+    const b=document.createElement("button");
+    b.className="seat"+(S.seats[i]?" ocupat":"");
+    if(S.me&&S.me.loc===i) b.classList.add("me");
+    b.title = S.seats[i] ? `#${i} ${S.seats[i].nume}` : `#${i} liber`;
+    b.onclick=()=>selectSeat(i);
+    g.appendChild(b);
+  }
+  const q=Object.values(S.seats).sort((a,b)=>(rank[b.gift]||0)-(rank[a.gift]||0)||a.loc-b.loc);
+  const lab={trandafiri:"🌹 x10",gogoasa:"🍩",palarie:"🎩"};
+  $("queueList").innerHTML=q.map((p,i)=>`<div class="queue-item"><span>${i+1}. ${p.nume} · ${p.oras}</span><span>${lab[p.gift]||""}</span></div>`).join("");
+}
+function selectSeat(i){
+  if(S.seats[i]){ toast(`Loc ${i}: ${S.seats[i].nume}`); $("reserveBox").style.display="none"; return; }
+  S.selected=i; $("selSeat").textContent=i; $("reserveBox").style.display="block";
+}
+$("btnReserve").onclick=()=>{
+  const nume=$("nume").value.trim(), oras=$("oras").value.trim();
+  if(!nume||!oras) return toast("Nume și oraș");
+  if(S.me) return toast("Ai deja un loc");
+  S.seats[S.selected]={loc:S.selected,nume,oras,gift:"palarie",propunere:""};
+  S.me={loc:S.selected,nume,oras}; save(); renderSeats(); toast("Rezervat"); $("reserveBox").style.display="none";
+};
+document.querySelectorAll(".gift").forEach(g=>g.onclick=()=>{
+  if(!S.me) return toast("Rezervă un loc");
+  S.seats[S.me.loc].gift=g.dataset.gift; save(); toast("Cadou aplicat"); renderSeats();
+});
+
+const cam=$("cam"), canvas=$("stage"), ctx=canvas.getContext("2d");
+const sala=new Image(); sala.src="assets/sala.jpg";
+let raf=0, lastDetect=0;
+
+async function initDetector(){
+  if(S.detector) return S.detector;
+  try{
+    const files = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
+    S.detector = await FaceDetector.createFromOptions(files, {
+      baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite", delegate:"GPU" },
+      runningMode: "VIDEO"
+    });
+    $("cropStatus").textContent="AI Crop: model încărcat. Apasă ON ca să urmărească fața.";
+    return S.detector;
+  }catch(e){
+    $("cropStatus").textContent="AI Crop: modelul nu s-a încărcat. Folosește crop central.";
+    return null;
+  }
+}
+
+async function startCam(deviceId){
+  if(S.stream){ S.stream.getTracks().forEach(t=>t.stop()); S.stream=null; }
+  const video = deviceId
+    ? { deviceId:{exact:deviceId}, width:{ideal:1280}, height:{ideal:720} }
+    : { facingMode:"user", width:{ideal:1280}, height:{ideal:720} };
+  try{
+    S.stream = await navigator.mediaDevices.getUserMedia({ video, audio:true });
+    S.stream.getAudioTracks().forEach(t=>t.enabled=S.mic);
+    cam.srcObject=S.stream; await cam.play();
+    await initDetector();
+    draw();
+  }catch{ toast("Permite camera + microfon (HTTPS sau localhost)"); }
+}
+
+$("btnCam").onclick=async()=>{
+  const list = await navigator.mediaDevices.enumerateDevices();
+  const cams = list.filter(d=>d.kind==="videoinput");
+  if(!cams.length) return toast("Nicio cameră");
+  const pick = prompt("Index cameră 0-"+(cams.length-1)+"\n"+cams.map((c,i)=>i+": "+(c.label||"cam")).join("\n"), "0");
+  const i = +pick; if(Number.isFinite(i)&&cams[i]) startCam(cams[i].deviceId);
+};
+
+function detectFace(now){
+  if(!S.aiCrop || !S.detector || cam.readyState<2) return;
+  if(now-lastDetect<80) return;
+  lastDetect=now;
+  try{
+    const res = S.detector.detectForVideo(cam, now);
+    const f = res.detections?.[0]?.boundingBox;
+    if(!f) return;
+    const nx = (f.originX + f.width/2) / cam.videoWidth;
+    const ny = (f.originY + f.height/2) / cam.videoHeight;
+    const nw = Math.min(.9, (f.width/cam.videoWidth)*2.2);
+    const nh = Math.min(.9, (f.height/cam.videoHeight)*3.0);
+    S.face.x += (nx-S.face.x)*0.25;
+    S.face.y += (ny-S.face.y)*0.25;
+    S.face.w += (nw-S.face.w)*0.2;
+    S.face.h += (nh-S.face.h)*0.2;
+  }catch{}
+}
+
+function sourceRect(){
+  const vw=cam.videoWidth||640, vh=cam.videoHeight||480;
+  if(!S.aiCrop){
+    return {sx:0,sy:0,sw:vw,sh:vh};
+  }
+  const sw=vw*S.face.w, sh=vh*S.face.h;
+  let sx=vw*S.face.x - sw/2, sy=vh*S.face.y - sh*0.42;
+  sx=Math.max(0,Math.min(vw-sw,sx));
+  sy=Math.max(0,Math.min(vh-sh,sy));
+  return {sx,sy,sw:Math.min(sw,vw),sh:Math.min(sh,vh)};
+}
+
+function draw(ts=performance.now()){
+  cancelAnimationFrame(raf);
+  const w=canvas.clientWidth||360, h=canvas.clientHeight||640;
+  if(canvas.width!==w){canvas.width=w;canvas.height=h;}
+  if(sala.complete && sala.naturalWidth) ctx.drawImage(sala,0,0,w,h);
+  else { ctx.fillStyle="#1a120a"; ctx.fillRect(0,0,w,h); }
+
+  detectFace(ts);
+
+  const cw=w*(S.aiCrop?0.48:0.42), ch=h*(S.aiCrop?0.44:0.38);
+  const cx=(w-cw)/2, cy=h*0.30;
+
+  if(cam.readyState>=2){
+    const r=sourceRect();
+    ctx.save();
+    if(S.removeBg || S.privacy!==2){
+      ctx.beginPath();
+      ctx.ellipse(cx+cw/2, cy+ch/2, cw/2, ch/2, 0, 0, Math.PI*2);
+      ctx.clip();
+    }
+    ctx.translate(w,0); ctx.scale(-1,1);
+    const dx=w-cx-cw;
+    ctx.drawImage(cam, r.sx,r.sy,r.sw,r.sh, dx,cy,cw,ch);
+    ctx.restore();
+  }
+
+  ctx.strokeStyle="rgba(212,181,106,.35)"; ctx.strokeRect(cx,cy,cw,ch);
+  ctx.fillStyle="#f0e0a8"; ctx.font="11px Georgia";
+  ctx.fillText(BODIES[S.body]+" · "+PRIVACY[S.privacy]+(S.aiCrop?" · CROP":""), cx, cy-6);
+  if(S.privacy!==2) drawMask(cx+cw/2, cy+ch*0.32, cw*0.34);
+  if(S.overlayImg){ const s=cw*0.28; ctx.drawImage(S.overlayImg, cx+cw/2-s/2, cy+8, s,s); }
+  ctx.fillStyle="rgba(0,0,0,.45)"; ctx.fillRect(12,12,150,22);
+  ctx.fillStyle="#f0e0a8"; ctx.font="12px Georgia"; ctx.fillText("NERVOBIȚII",20,27);
+  raf=requestAnimationFrame(draw);
+}
+
+function drawMask(x,y,r){
+  ctx.save(); ctx.translate(x,y);
+  const k=MASKS[S.mask];
+  if(k==="Anonim"){
+    ctx.fillStyle="#c9a44a"; ctx.beginPath(); ctx.ellipse(0,0,r,r*1.15,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle="#1a120a";
+    ctx.beginPath(); ctx.ellipse(-r*.35,-r*.1,r*.16,r*.12,0,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(r*.35,-r*.1,r*.16,r*.12,0,0,Math.PI*2); ctx.fill();
+  } else if(k==="Deputat"){
+    ctx.fillStyle="#e8c9a0"; ctx.beginPath(); ctx.ellipse(0,0,r*.95,r*1.1,0,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle="#222"; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(-r*.32,0,r*.22,0,Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(r*.32,0,r*.22,0,Math.PI*2); ctx.stroke();
+  } else if(k==="Dac"){
+    ctx.fillStyle="#8a7350"; ctx.beginPath(); ctx.moveTo(0,-r*1.3); ctx.lineTo(r,r*.4); ctx.lineTo(-r,r*.4); ctx.fill();
+  } else if(k==="Bufon"){
+    ctx.fillStyle="#d4c4a0"; ctx.beginPath(); ctx.ellipse(0,0,r,r*1.05,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle="#7a1f2b";
+    ctx.beginPath(); ctx.moveTo(-r,-r*.2); ctx.lineTo(-r*1.2,-r*1.1); ctx.lineTo(-r*.2,-r*.6); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(r,-r*.2); ctx.lineTo(r*1.2,-r*1.1); ctx.lineTo(r*.2,-r*.6); ctx.fill();
+  } else {
+    ctx.fillStyle="#e8e4dc"; ctx.beginPath(); ctx.ellipse(0,0,r,r*1.2,0,0,Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+$("btnMic").onclick=()=>{
+  S.mic=!S.mic; if(S.stream) S.stream.getAudioTracks().forEach(t=>t.enabled=S.mic);
+  $("btnMic").textContent=S.mic?"🎙 Mic ON":"🎙 Mic OFF";
+  $("btnMic").classList.toggle("on",S.mic);
+};
+$("btnCrop").onclick=async()=>{
+  S.aiCrop=!S.aiCrop;
+  $("btnCrop").textContent=S.aiCrop?"AI Crop ON":"AI Crop OFF";
+  $("btnCrop").classList.toggle("on",S.aiCrop);
+  if(S.aiCrop){ await initDetector(); toast("AI Crop: urmărește fața live"); }
+  $("cropStatus").textContent=S.aiCrop?"AI Crop ON — zoom pe față, lipit pe tribună.":"AI Crop oprit.";
+};
+$("btnBg").onclick=()=>{
+  S.removeBg=!S.removeBg;
+  $("btnBg").textContent=S.removeBg?"Remove BG ON":"Remove BG OFF";
+  $("btnBg").classList.toggle("on",S.removeBg);
+};
+$("btnMask").onclick=()=>{ S.mask=(S.mask+1)%MASKS.length; $("btnMask").textContent="Masca: "+MASKS[S.mask]; };
+$("btnBody").onclick=()=>{ S.body=(S.body+1)%BODIES.length; $("btnBody").textContent="Corp: "+BODIES[S.body]; };
+$("btnPrivacy").onclick=()=>{ S.privacy=(S.privacy+1)%PRIVACY.length; $("btnPrivacy").textContent="Privacy: "+PRIVACY[S.privacy]; };
+$("btnUpload").onclick=()=>$("fileMask").click();
+$("fileMask").onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const img=new Image(); img.onload=()=>{S.overlayImg=img; toast("Masca încărcată");}; img.src=URL.createObjectURL(f);
+};
+$("btnAiMask").onclick=()=>{ const p=prompt("Descrie masca"); if(p) toast("AI mască (local): "+p); };
+$("btnLink").onclick=()=>{
+  const url=prompt("Link GIF/PNG"); if(!url) return;
+  const img=new Image(); img.crossOrigin="anonymous";
+  img.onload=()=>{S.overlayImg=img; toast("Sticker OK");};
+  img.onerror=()=>toast("CORS. Folosește Upload.");
+  img.src=url;
+};
+
+function applause(){
+  const ac=new (window.AudioContext||window.webkitAudioContext)();
+  for(let i=0;i<18;i++){
+    const o=ac.createOscillator(), g=ac.createGain();
+    o.type="square"; o.frequency.value=400+Math.random()*800; g.gain.value=0.02;
+    o.connect(g); g.connect(ac.destination);
+    const t=ac.currentTime+Math.random()*0.9; o.start(t); o.stop(t+0.08);
+  }
+}
+
+let tick=null;
+$("recBtn").onclick=async()=>{
+  if(S.recording) return stopRec();
+  if(!S.mic) return toast("Pornește microfonul");
+  if(!S.stream) await startCam();
+  let n=3; $("count").textContent=n;
+  const iv=setInterval(()=>{
+    n--; $("count").textContent=n>0?n:"";
+    if(n<=0){ clearInterval(iv); beginRec(); }
+  },700);
+};
+function beginRec(){
+  const stream=canvas.captureStream(25);
+  S.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
+  S.chunks=[];
+  try{ S.recorder=new MediaRecorder(stream,{mimeType:"video/webm"}); }
+  catch{ S.recorder=new MediaRecorder(stream); }
+  S.recorder.ondataavailable=e=>{ if(e.data.size) S.chunks.push(e.data); };
+  S.recorder.onstop=()=>{
+    const blob=new Blob(S.chunks,{type:"video/webm"});
+    if(S.blobUrl) URL.revokeObjectURL(S.blobUrl);
+    S.blobUrl=URL.createObjectURL(blob);
+    $("previewVid").src=S.blobUrl; go("preview");
+  };
+  S.recorder.start(200); S.recording=true; S.recStart=Date.now();
+  $("recBtn").classList.add("rec");
+  tick=setInterval(()=>{
+    const s=Math.min(MAX, Math.floor((Date.now()-S.recStart)/1000));
+    $("recTimer").textContent=`${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")} / 03:00`;
+    if(s>=MAX) stopRec();
+  },200);
+}
+function stopRec(){
+  if(!S.recording) return;
+  S.recording=false; $("recBtn").classList.remove("rec"); clearInterval(tick);
+  S.recorder.stop(); applause(); toast("Aplauze");
+}
+$("btnDelete").onclick=()=>{ S.blobUrl=null; $("previewVid").src=""; go("studio"); };
+$("btnPublish").onclick=()=>{
+  S.clips.unshift({titlu:$("titlu").value.trim()||"Fără titlu", autor:S.me?S.me.nume:"Anonim", url:S.blobUrl, inimi:0,voturi:0,don:0});
+  save(); renderFeed(); go("feed");
+};
+function renderFeed(){
+  $("feedList").innerHTML=S.clips.map((c,i)=>`
+    <div class="card"><strong>${c.titlu}</strong><div class="muted">${c.autor}</div>
+    ${c.url?`<video src="${c.url}" controls style="width:100%;margin-top:8px;border-radius:8px"></video>`:""}
+    <div class="actions">
+      <button data-a="heart" data-i="${i}">❤ ${c.inimi}</button>
+      <button data-a="vote" data-i="${i}">Vot ${c.voturi}</button>
+      <button data-a="don" data-i="${i}">🍩 ${c.don}</button>
+    </div>
+    <div class="actions">
+      <button data-s="https://www.instagram.com/">Instagram</button>
+      <button data-s="https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(location.href)}">Facebook</button>
+      <button data-s="https://www.tiktok.com/upload">TikTok</button>
+    </div></div>`).join("");
+  $("feedList").onclick=e=>{
+    const b=e.target.closest("button"); if(!b) return;
+    if(b.dataset.s){ window.open(b.dataset.s,"_blank"); return; }
+    const i=+b.dataset.i;
+    if(b.dataset.a==="heart") S.clips[i].inimi++;
+    if(b.dataset.a==="vote") S.clips[i].voturi++;
+    if(b.dataset.a==="don") S.clips[i].don++;
+    save(); renderFeed();
+  };
+}
+renderSeats(); renderFeed();
+</script>
+</body>
+</html>

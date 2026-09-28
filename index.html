@@ -121,7 +121,7 @@ video.preview{width:100%;border-radius:12px;background:#000;max-height:360px}
     <button class="btn" id="btnAiMask">AI mască</button>
     <button class="btn" id="btnLink">Upload fundal foto</button>
     <button class="btn" id="btnCam">Alege cameră</button>
-    <button class="btn" id="btnUploadVideo">Upload video</button>
+    <button class="btn" id="btnUploadVideo">Upload fundal video</button>
   </div>
   <p class="muted" style="margin-top:8px">Schimbă scena fundal</p>
   <div class="scenes" id="scenes"></div>
@@ -131,6 +131,7 @@ video.preview{width:100%;border-radius:12px;background:#000;max-height:360px}
   <input type="file" id="fileMask" accept="image/*" hidden/>
   <input type="file" id="fileBgPhoto" accept="image/*" hidden/>
   <input type="file" id="fileVideo" accept="video/*" hidden/>
+  <video id="bgVid" playsinline muted loop hidden></video>
   <p class="muted" id="cropStatus">Mută = 1 deget. Scale = pinch / rotiță. Colț albastru dreapta-jos = freeform.</p>
 </section>
 <section id="preview" class="screen">
@@ -142,7 +143,6 @@ video.preview{width:100%;border-radius:12px;background:#000;max-height:360px}
     <button class="btn full" id="btnDownload">Descarcă</button>
     <button class="btn danger full" id="btnDelete">Șterge</button>
   </div>
-  <button class="btn full" id="btnUploadVideo2" style="margin-top:8px">Upload alt video</button>
 </section>
 <section id="feed" class="screen">
   <h2>Propuneri</h2>
@@ -215,22 +215,43 @@ $("logoText").addEventListener("input",()=>{
   localStorage.setItem("nervo_logo", S.logo);
 });
 
+function pauseBgVid(){
+  const v=$("bgVid");
+  try{ v.pause(); }catch(e){}
+}
 function setScene(i){
   S.scene=i;
-  const src=SCENES[i].src;
-  sala.src=src;
-  $("heroSala").src=src;
-  $("seatBg").src=src;
+  const sc=SCENES[i];
+  const v=$("bgVid");
   document.querySelectorAll("#scenes button").forEach((b,n)=>b.classList.toggle("on",n===i));
+  if(sc.type==="video"){
+    S.bgVideo=true;
+    if(v.src!==sc.src){ v.src=sc.src; }
+    v.muted=true; v.loop=true; v.playsInline=true;
+    v.play().catch(()=>{});
+    if(sc.thumb){
+      sala.src=sc.thumb;
+      $("heroSala").src=sc.thumb;
+      $("seatBg").src=sc.thumb;
+    }
+  } else {
+    S.bgVideo=false;
+    pauseBgVid();
+    sala.src=sc.src;
+    $("heroSala").src=sc.src;
+    $("seatBg").src=sc.src;
+  }
 }
-const scenesEl=$("scenes");
-SCENES.forEach((sc,i)=>{
+function addSceneThumb(sc,i,on){
   const b=document.createElement("button");
-  if(i===0) b.className="on";
-  b.innerHTML=`<img src="${sc.src}" alt="${sc.name}"><div class="scene-lab">${sc.name}</div>`;
+  if(on) b.className="on";
+  const thumb=sc.thumb||sc.src;
+  b.innerHTML=`<img src="${thumb}" alt="${sc.name}"><div class="scene-lab">${sc.name}</div>`;
   b.onclick=()=>setScene(i);
   scenesEl.appendChild(b);
-});
+}
+const scenesEl=$("scenes");
+SCENES.forEach((sc,i)=>addSceneThumb(sc,i,i===0));
 
 function renderSeats(){
   const g=$("seatGrid"); g.innerHTML="";
@@ -346,11 +367,15 @@ function draw(){
   cancelAnimationFrame(raf);
   const w=canvas.clientWidth||360, h=canvas.clientHeight||640;
   if(canvas.width!==w){canvas.width=w;canvas.height=h;}
-  if(sala.complete && sala.naturalWidth){
-    ctx.filter="brightness(1.16)";
+  const bgv=$("bgVid");
+  const useVid=S.bgVideo && bgv && bgv.readyState>=2;
+  ctx.filter="brightness(1.16)";
+  if(useVid){
+    try{ ctx.drawImage(bgv,0,0,w,h); }catch(e){ ctx.fillStyle="#10202a"; ctx.fillRect(0,0,w,h); }
+  } else if(sala.complete && sala.naturalWidth){
     ctx.drawImage(sala,0,0,w,h);
-    ctx.filter="none";
-  } else { ctx.fillStyle="#10202a"; ctx.fillRect(0,0,w,h); }
+  } else { ctx.filter="none"; ctx.fillStyle="#10202a"; ctx.fillRect(0,0,w,h); }
+  ctx.filter="none";
 
   const cw=w*S.camPos.w, ch=h*S.camPos.h;
   const cx=w*S.camPos.x-cw/2, cy=h*S.camPos.y-ch/2;
@@ -494,21 +519,29 @@ $("fileMask").onchange=e=>{
 };
 $("btnAiMask").onclick=()=>{ const p=prompt("Descrie masca"); if(p) toast("Folosește Upload pentru imagine"); };
 $("btnLink").onclick=()=>$("fileBgPhoto").click();
-function openVideoPicker(){ $("fileVideo").click(); }
-$("btnUploadVideo").onclick=openVideoPicker;
-$("btnUploadVideo2").onclick=openVideoPicker;
+$("btnUploadVideo").onclick=()=>$("fileVideo").click();
 $("fileVideo").onchange=e=>{
   const f=e.target.files[0]; if(!f) return;
-  if(!f.type.startsWith("video/")) return toast("Alege un fișier video");
-  if(S.blobUrl) URL.revokeObjectURL(S.blobUrl);
-  S.blobUrl=URL.createObjectURL(f);
-  S.uploadName=f.name;
-  $("previewVid").src=S.blobUrl;
-  $("previewTitle").textContent="Video încărcat";
-  const base=f.name.replace(/\.[^.]+$/,"");
-  if(!$("titlu").value.trim()) $("titlu").value=base.slice(0,80);
-  toast("Video încărcat");
-  go("preview");
+  if(!String(f.type||"").startsWith("video/")) return toast("Alege un fișier video");
+  const url=URL.createObjectURL(f);
+  const v=$("bgVid");
+  const grabThumb=()=>{
+    let thumb="";
+    try{
+      const c=document.createElement("canvas");
+      c.width=320; c.height=180;
+      c.getContext("2d").drawImage(v,0,0,320,180);
+      thumb=c.toDataURL("image/jpeg",0.7);
+    }catch(err){}
+    SCENES.push({name:"Fundal video",src:url,type:"video",thumb:thumb||undefined});
+    const idx=SCENES.length-1;
+    addSceneThumb(SCENES[idx],idx,true);
+    setScene(idx);
+    toast("Fundal video încărcat");
+  };
+  v.onloadeddata=()=>{ grabThumb(); v.onloadeddata=null; };
+  v.src=url; v.muted=true; v.loop=true; v.playsInline=true;
+  v.play().catch(()=>{});
   e.target.value="";
 };
 $("fileBgPhoto").onchange=e=>{

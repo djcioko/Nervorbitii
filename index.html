@@ -69,6 +69,11 @@ video.preview{width:100%;border-radius:12px;background:#000;max-height:360px}
 .mapwrap{position:relative;border-radius:12px;overflow:hidden;border:1px solid #2a5570}
 .mapwrap img{width:100%;display:block;filter:brightness(1.2) contrast(1.04)}
 .mapwrap canvas{position:absolute;inset:0;width:100%;height:100%}
+.mask-panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;margin-top:8px}
+.mask-panel .sl{margin:8px 0}
+.mask-panel .sl label{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px}
+.mask-panel input[type=range]{width:100%;accent-color:#7ecbff}
+
 </style>
 </head>
 <body>
@@ -118,8 +123,10 @@ video.preview{width:100%;border-radius:12px;background:#000;max-height:360px}
     <button class="btn" id="btnBody">Corp: Om</button>
     <button class="btn" id="btnPrivacy">Privacy: Față reală</button>
     <button class="btn" id="btnUpload">Upload mască PNG</button>
+    <button class="btn" id="btnPngOn">PNG față OFF</button>
     <button class="btn" id="btnFaceTrigger">Face Trigger OFF</button>
     <button class="btn" id="btnMaskEdit">Mask edit OFF</button>
+    <button class="btn" id="btnFlipMask">Răstoarnă 180°</button>
     <button class="btn" id="btnAiMask">AI mască</button>
     <button class="btn" id="btnLink">Upload fundal foto</button>
     <button class="btn" id="btnCam">Alege cameră</button>
@@ -127,6 +134,14 @@ video.preview{width:100%;border-radius:12px;background:#000;max-height:360px}
   </div>
   <p class="muted" style="margin-top:8px">Schimbă scena fundal</p>
   <div class="scenes" id="scenes"></div>
+  <div class="mask-panel" id="maskPanel">
+    <div class="sl"><label>Rotire mască PNG <span id="rotLab">0°</span></label>
+      <input type="range" id="rotSlider" min="-180" max="180" value="0" step="1"/>
+    </div>
+    <div class="sl"><label>Mărime mască <span id="scaleLab">172%</span></label>
+      <input type="range" id="scaleSlider" min="35" max="420" value="172" step="1"/>
+    </div>
+  </div>
   <div class="field"><label>Logo pe ecran (gol = fără logo)</label>
     <input id="logoText" maxlength="28" placeholder="NERVOBIȚII sau numele tău"/>
   </div>
@@ -189,7 +204,7 @@ const S={
   face:{x:.5,y:.42,w:.4,h:.5}, detector:null, scene:0,
   camPos:{x:.5,y:.58,w:.42,h:.38}, dragging:false,
   logo: localStorage.getItem("nervo_logo") ?? "NERVOBIȚII",
-  faceTrigger:false, maskEdit:false, faceMesh:null, lms:null, lastFace:null, faceLost:0,
+  faceTrigger:false, maskEdit:false, pngOn:false, faceMesh:null, lms:null, lastFace:null, faceLost:0,
   srcCrop:{x:0,y:0,w:1,h:1}, maskAdj:{dx:0,dy:-0.08,scale:1.72,rot:0},
   maskHit:null, faceW01:0.2, maskDragging:false, maskResize:false, trackLoop:false
 };
@@ -411,7 +426,7 @@ function getFacePose(cx,cy,cw,ch){
     const faceH=Math.max(18, Math.hypot(bot.x-top.x, bot.y-top.y));
     const pose={
       cx:(lc.x+rc.x)/2, cy:(top.y+bot.y)/2, nose,
-      w:faceW, h:faceH, rot:Math.atan2(R.y-L.y, R.x-L.x),
+      w:faceW, h:faceH, rot:Math.atan2(L.y-R.y, L.x-R.x),
       L,R,top,bot,lc,rc
     };
     S.lastFace=pose;
@@ -539,7 +554,7 @@ function draw(){
     drawMask(0,0, fw*0.55*S.maskAdj.scale);
     ctx.restore();
   }
-  if(S.overlayImg){
+  if(S.overlayImg && S.pngOn){
     const img=S.overlayImg;
     const ratio=(img.naturalHeight||img.height||1)/Math.max(1,img.naturalWidth||img.width||1);
     const mw=fw*S.maskAdj.scale;
@@ -652,7 +667,7 @@ box.addEventListener("pointermove",e=>{
     const d=pinchDist();
     const k=d/S.pinch0;
     if(S.maskEdit && S.overlayImg){
-      S.maskAdj.scale=Math.min(4.2, Math.max(.35, (S.maskPinchScale||S.maskAdj.scale)*k));
+      S.maskAdj.scale=Math.min(4.2, Math.max(.35, (S.maskPinchScale||S.maskAdj.scale)*k)); syncMaskSliders();
     } else {
       S.camPos.w=S.pinW*k; S.camPos.h=S.pinH*k; clampCam();
     }
@@ -662,7 +677,7 @@ box.addEventListener("pointermove",e=>{
   if(S.maskResize && S.maskHit){
     const d=Math.hypot(p.x-S.maskHit.x,p.y-S.maskHit.y);
     const k=d/Math.max(0.02,S.maskPin0||0.02);
-    S.maskAdj.scale=Math.min(4.2, Math.max(.35, (S.maskScale0||1)*k));
+    S.maskAdj.scale=Math.min(4.2, Math.max(.35, (S.maskScale0||1)*k)); syncMaskSliders();
     return;
   }
   if(S.maskDragging && S.maskDrag0){
@@ -685,7 +700,7 @@ box.addEventListener("wheel",e=>{
   e.preventDefault();
   const k=e.deltaY<0?1.08:0.92;
   if(S.maskEdit && S.overlayImg){
-    S.maskAdj.scale=Math.min(4.2, Math.max(.35, S.maskAdj.scale*k));
+    S.maskAdj.scale=Math.min(4.2, Math.max(.35, S.maskAdj.scale*k)); syncMaskSliders();
   } else {
     S.camPos.w*=k; S.camPos.h*=k; clampCam();
   }
@@ -733,11 +748,20 @@ $("btnPrivacy").onclick=()=>{
   if(S.privacy===0) initDetector();
 };
 $("btnUpload").onclick=()=>$("fileMask").click();
+function degMask(){ return Math.round((S.maskAdj.rot*180)/Math.PI); }
+function syncMaskSliders(){
+  const rs=$("rotSlider"), ss=$("scaleSlider");
+  if(rs){ rs.value=String(degMask()); $("rotLab").textContent=degMask()+"°"; }
+  if(ss){ ss.value=String(Math.round(S.maskAdj.scale*100)); $("scaleLab").textContent=Math.round(S.maskAdj.scale*100)+"%"; }
+}
 function syncFaceBtns(){
   $("btnFaceTrigger").textContent=S.faceTrigger?"Face Trigger ON":"Face Trigger OFF";
   $("btnFaceTrigger").classList.toggle("on", S.faceTrigger);
   $("btnMaskEdit").textContent=S.maskEdit?"Mask edit ON":"Mask edit OFF";
   $("btnMaskEdit").classList.toggle("on", S.maskEdit);
+  $("btnPngOn").textContent=S.pngOn?"PNG față ON":"PNG față OFF";
+  $("btnPngOn").classList.toggle("on", S.pngOn);
+  syncMaskSliders();
 }
 $("btnFaceTrigger").onclick=async()=>{
   S.faceTrigger=!S.faceTrigger;
@@ -747,15 +771,36 @@ $("btnFaceTrigger").onclick=async()=>{
 };
 $("btnMaskEdit").onclick=()=>{
   S.maskEdit=!S.maskEdit;
-  if(S.maskEdit) toast("Trage masca, colț galben = scale, pinch/rotiță = mărime");
+  if(S.maskEdit) toast("Trage masca, colț galben = scale, slider = rotire");
   syncFaceBtns();
 };
+$("btnPngOn").onclick=()=>{
+  if(!S.overlayImg) return toast("Încarcă mai întâi un PNG");
+  S.pngOn=!S.pngOn;
+  if(S.pngOn){ S.faceTrigger=true; initDetector(); toast("PNG pe față ON"); }
+  else toast("PNG pe față OFF");
+  syncFaceBtns();
+};
+$("btnFlipMask").onclick=()=>{
+  S.maskAdj.rot += Math.PI;
+  if(S.maskAdj.rot>Math.PI) S.maskAdj.rot-=Math.PI*2;
+  syncMaskSliders();
+  toast("Masca întoarsă 180°");
+};
+$("rotSlider").addEventListener("input",()=>{
+  S.maskAdj.rot=(+$("rotSlider").value)*Math.PI/180;
+  $("rotLab").textContent=$("rotSlider").value+"°";
+});
+$("scaleSlider").addEventListener("input",()=>{
+  S.maskAdj.scale=Math.min(4.2, Math.max(.35, +$("scaleSlider").value/100));
+  $("scaleLab").textContent=Math.round(S.maskAdj.scale*100)+"%";
+});
 $("fileMask").onchange=e=>{
   const f=e.target.files[0]; if(!f) return;
   const img=new Image();
   img.onload=()=>{
     S.overlayImg=img; S.mask=6;
-    S.faceTrigger=true; S.maskEdit=true;
+    S.faceTrigger=true; S.maskEdit=true; S.pngOn=true;
     S.maskAdj={dx:0,dy:-0.08,scale:1.72,rot:0};
     $("btnMask").textContent="Masca: Upload";
     syncFaceBtns();

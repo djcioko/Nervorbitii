@@ -121,6 +121,7 @@ video.preview{width:100%;border-radius:12px;background:#000;max-height:360px}
     <button class="btn" id="btnAiMask">AI mască</button>
     <button class="btn" id="btnLink">Upload fundal foto</button>
     <button class="btn" id="btnCam">Alege cameră</button>
+    <button class="btn" id="btnUploadVideo">Upload video</button>
   </div>
   <p class="muted" style="margin-top:8px">Schimbă scena fundal</p>
   <div class="scenes" id="scenes"></div>
@@ -129,10 +130,11 @@ video.preview{width:100%;border-radius:12px;background:#000;max-height:360px}
   </div>
   <input type="file" id="fileMask" accept="image/*" hidden/>
   <input type="file" id="fileBgPhoto" accept="image/*" hidden/>
+  <input type="file" id="fileVideo" accept="video/*" hidden/>
   <p class="muted" id="cropStatus">Mută = 1 deget. Scale = pinch / rotiță. Colț albastru dreapta-jos = freeform.</p>
 </section>
 <section id="preview" class="screen">
-  <h2>Înregistrare finalizată</h2>
+  <h2 id="previewTitle">Înregistrare finalizată</h2>
   <video id="previewVid" class="preview" controls></video>
   <div class="field"><label>Titlu</label><input id="titlu" placeholder="Propunerea ta"/></div>
   <div class="row">
@@ -140,6 +142,7 @@ video.preview{width:100%;border-radius:12px;background:#000;max-height:360px}
     <button class="btn full" id="btnDownload">Descarcă</button>
     <button class="btn danger full" id="btnDelete">Șterge</button>
   </div>
+  <button class="btn full" id="btnUploadVideo2" style="margin-top:8px">Upload alt video</button>
 </section>
 <section id="feed" class="screen">
   <h2>Propuneri</h2>
@@ -491,6 +494,23 @@ $("fileMask").onchange=e=>{
 };
 $("btnAiMask").onclick=()=>{ const p=prompt("Descrie masca"); if(p) toast("Folosește Upload pentru imagine"); };
 $("btnLink").onclick=()=>$("fileBgPhoto").click();
+function openVideoPicker(){ $("fileVideo").click(); }
+$("btnUploadVideo").onclick=openVideoPicker;
+$("btnUploadVideo2").onclick=openVideoPicker;
+$("fileVideo").onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  if(!f.type.startsWith("video/")) return toast("Alege un fișier video");
+  if(S.blobUrl) URL.revokeObjectURL(S.blobUrl);
+  S.blobUrl=URL.createObjectURL(f);
+  S.uploadName=f.name;
+  $("previewVid").src=S.blobUrl;
+  $("previewTitle").textContent="Video încărcat";
+  const base=f.name.replace(/\.[^.]+$/,"");
+  if(!$("titlu").value.trim()) $("titlu").value=base.slice(0,80);
+  toast("Video încărcat");
+  go("preview");
+  e.target.value="";
+};
 $("fileBgPhoto").onchange=e=>{
   const f=e.target.files[0]; if(!f) return;
   const url=URL.createObjectURL(f);
@@ -538,7 +558,7 @@ function beginRec(){
     const blob=new Blob(S.chunks,{type:"video/webm"});
     if(S.blobUrl) URL.revokeObjectURL(S.blobUrl);
     S.blobUrl=URL.createObjectURL(blob);
-    $("previewVid").src=S.blobUrl; go("preview");
+    $("previewVid").src=S.blobUrl; $("previewTitle").textContent="Înregistrare finalizată"; go("preview");
   };
   S.recorder.start(200); S.recording=true; S.recStart=Date.now();
   $("recBtn").classList.add("rec");
@@ -557,8 +577,9 @@ $("btnDownload").onclick=()=>{
   if(!S.blobUrl) return toast("Nu există clip");
   const a=document.createElement("a");
   a.href=S.blobUrl;
-  const name=($("titlu").value.trim()||"nervobitii").replace(/[^a-zA-Z0-9_-ăâîșțĂÂÎȘȚ ]/g,"").slice(0,40);
-  a.download=name+".webm";
+  const name=($("titlu").value.trim()||S.uploadName||"nervobitii").replace(/[^a-zA-Z0-9_-ăâîșțĂÂÎȘȚ .]/g,"").slice(0,40);
+  const ext=(S.uploadName&&S.uploadName.includes("."))?S.uploadName.split(".").pop():"webm";
+  a.download=name.includes(".")?name:(name+"."+ext);
   a.click();
 };
 $("btnDelete").onclick=()=>{ S.blobUrl=null; $("previewVid").src=""; go("studio"); };

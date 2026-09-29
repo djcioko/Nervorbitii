@@ -752,20 +752,20 @@ function openPop(){
   const w=window.open("","nervo_preview","popup=yes,width=900,height=560");
   if(!w){ toast("Permite pop-up-uri pentru Preview 2"); return; }
   S.popWin=w;
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Nervobiții — Preview</title>
-<style>*{margin:0;padding:0}html,body{background:#000;height:100%;overflow:hidden}
-canvas{width:100%;height:100%;object-fit:contain;background:#000}
-.bar{position:fixed;top:8px;right:8px;display:flex;gap:6px;z-index:2}
-button{background:#0d1822cc;color:#b9e4ff;border:1px solid #7ecbff;border-radius:8px;padding:6px 10px;cursor:pointer;font:12px Georgia}</style></head>
-<body><canvas id="p"></canvas><div class="bar"><button id="fs">Fullscreen</button></div>
-<script>
-const c=document.getElementById("p");
-document.getElementById("fs").onclick=()=>{
-  if(document.fullscreenElement) document.exitFullscreen();
-  else document.documentElement.requestFullscreen();
-};
-</script></body></html>`);
+  w.document.open();
+  w.document.write("<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>Nervobiții — Preview</title>");
+  w.document.write("<style>*{margin:0;padding:0}html,body{background:#000;height:100%;overflow:hidden}canvas{width:100%;height:100%;object-fit:contain;background:#000}.bar{position:fixed;top:8px;right:8px;z-index:2}button{background:#0d1822cc;color:#b9e4ff;border:1px solid #7ecbff;border-radius:8px;padding:6px 10px;cursor:pointer}</style></head>");
+  w.document.write("<body><canvas id=\"p\"></canvas><div class=\"bar\"><button id=\"fs\">Fullscreen</button></div></body></html>");
   w.document.close();
+  w.onload=()=>{
+    try{
+      const b=w.document.getElementById("fs");
+      if(b) b.onclick=()=>{
+        if(w.document.fullscreenElement) w.document.exitFullscreen();
+        else w.document.documentElement.requestFullscreen();
+      };
+    }catch(e){}
+  };
   S.popCtx=null;
   $("btnPop").textContent="Închide Preview";
   $("btnPop").classList.add("on");

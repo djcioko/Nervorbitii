@@ -52,6 +52,10 @@ h1{font-size:20px;margin:6px 0}h2{font-size:15px;margin:8px 0}
 .gift{text-align:center;font-size:10px;color:#cfe8f8;cursor:pointer}
 .gift span{font-size:16px;display:block}
 .hide-btn{position:absolute;left:8px;top:8px;z-index:6;width:44px;height:26px;border-radius:8px;border:1px solid #7ecbff;background:#0d1822cc;color:#b9e4ff;font-size:9px}
+.stage-btns{position:absolute;right:8px;top:8px;z-index:6;display:flex;gap:4px}
+.stage-btns button{height:26px;padding:0 8px;border-radius:8px;border:1px solid #7ecbff;background:#0d1822cc;color:#b9e4ff;font-size:9px;cursor:pointer}
+.studio:fullscreen,.studio:-webkit-full-screen{max-height:100vh;aspect-ratio:auto;border-radius:0;width:100%;height:100%}
+.studio:fullscreen canvas,.studio:-webkit-full-screen canvas{width:100%;height:100%}
 .scenes{display:flex;gap:6px;margin-top:6px}
 .scenes button{flex:1;padding:0;border:2px solid #2a5570;border-radius:8px;overflow:hidden;background:#071018;cursor:pointer}
 .scenes button.on{border-color:#7ecbff}
@@ -106,6 +110,10 @@ video.preview{width:100%;border-radius:12px;background:#000;max-height:360px}
     <video id="cam" class="raw" playsinline muted></video>
     <canvas id="stage"></canvas>
     <button class="hide-btn" id="btnHide">SHOW</button>
+    <div class="stage-btns">
+      <button id="btnFs" type="button">Fullscreen</button>
+      <button id="btnPop" type="button">Preview 2</button>
+    </div>
     <div class="timer" id="recTimer">00:00 / 03:00</div>
     <div class="count" id="count"></div>
   </div>
@@ -586,6 +594,7 @@ function draw(){
     ctx.fillStyle="rgba(0,0,0,.45)"; ctx.fillRect(56,8,tw+16,18);
     ctx.fillStyle="#b9e4ff"; ctx.fillText(label,64,21);
   }
+  pushPopPreview();
   raf=requestAnimationFrame(draw);
 }
 function drawMask(x,y,r){
@@ -711,8 +720,74 @@ $("btnHide").onclick=()=>{
   $("tools").classList.toggle("hide", S.hideUi);
   $("giftsBar").classList.toggle("hide", S.hideUi);
   $("scenes").style.display=S.hideUi?"none":"flex";
+  const mp=$("maskPanel"); if(mp) mp.style.display=S.hideUi?"none":"";
   $("btnHide").textContent=S.hideUi?"SHOW":"HIDE";
 };
+function isFs(){
+  return document.fullscreenElement===$("stageBox") || document.webkitFullscreenElement===$("stageBox");
+}
+$("btnFs").onclick=async()=>{
+  const el=$("stageBox");
+  try{
+    if(isFs()){
+      if(document.exitFullscreen) await document.exitFullscreen();
+      else if(document.webkitExitFullscreen) document.webkitExitFullscreen();
+      $("btnFs").textContent="Fullscreen";
+    } else {
+      if(el.requestFullscreen) await el.requestFullscreen();
+      else if(el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+      $("btnFs").textContent="Ieși FS";
+    }
+  }catch(e){ toast("Fullscreen blocat de browser"); }
+};
+document.addEventListener("fullscreenchange",()=>{ $("btnFs").textContent=isFs()?"Ieși FS":"Fullscreen"; });
+document.addEventListener("webkitfullscreenchange",()=>{ $("btnFs").textContent=isFs()?"Ieși FS":"Fullscreen"; });
+function closePop(){
+  try{ if(S.popWin && !S.popWin.closed) S.popWin.close(); }catch(e){}
+  S.popWin=null; S.popCtx=null;
+  $("btnPop").textContent="Preview 2";
+  $("btnPop").classList.remove("on");
+}
+function openPop(){
+  const w=window.open("","nervo_preview","popup=yes,width=900,height=560");
+  if(!w){ toast("Permite pop-up-uri pentru Preview 2"); return; }
+  S.popWin=w;
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Nervobiții — Preview</title>
+<style>*{margin:0;padding:0}html,body{background:#000;height:100%;overflow:hidden}
+canvas{width:100%;height:100%;object-fit:contain;background:#000}
+.bar{position:fixed;top:8px;right:8px;display:flex;gap:6px;z-index:2}
+button{background:#0d1822cc;color:#b9e4ff;border:1px solid #7ecbff;border-radius:8px;padding:6px 10px;cursor:pointer;font:12px Georgia}</style></head>
+<body><canvas id="p"></canvas><div class="bar"><button id="fs">Fullscreen</button></div>
+<script>
+const c=document.getElementById("p");
+document.getElementById("fs").onclick=()=>{
+  if(document.fullscreenElement) document.exitFullscreen();
+  else document.documentElement.requestFullscreen();
+};
+</script></body></html>`);
+  w.document.close();
+  S.popCtx=null;
+  $("btnPop").textContent="Închide Preview";
+  $("btnPop").classList.add("on");
+  toast("Trage fereastra Preview pe monitorul 2, apoi Fullscreen acolo");
+}
+function pushPopPreview(){
+  if(!S.popWin) return;
+  try{
+    if(S.popWin.closed){ closePop(); return; }
+    const pc=S.popWin.document.getElementById("p");
+    if(!pc) return;
+    if(pc.width!==canvas.width) pc.width=canvas.width;
+    if(pc.height!==canvas.height) pc.height=canvas.height;
+    const pctx=pc.getContext("2d");
+    pctx.drawImage(canvas,0,0);
+  }catch(e){}
+}
+$("btnPop").onclick=()=>{
+  if(S.popWin && !S.popWin.closed) closePop();
+  else openPop();
+};
+window.addEventListener("beforeunload", closePop);
 $("btnMic").onclick=()=>{
   S.mic=!S.mic; if(S.stream) S.stream.getAudioTracks().forEach(t=>t.enabled=S.mic);
   $("btnMic").textContent=S.mic?"🎙 Mic ON":"🎙 Mic OFF";

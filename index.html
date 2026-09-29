@@ -51,7 +51,15 @@ h1{font-size:20px;margin:6px 0}h2{font-size:15px;margin:8px 0}
 .gifts.hide{display:none}
 .gift{text-align:center;font-size:10px;color:#cfe8f8;cursor:pointer}
 .gift span{font-size:16px;display:block}
-.hide-btn{position:absolute;left:8px;top:8px;z-index:6;width:44px;height:26px;border-radius:8px;border:1px solid #7ecbff;background:#0d1822cc;color:#b9e4ff;font-size:9px}
+.hide-btn{display:none}
+.stage-dock{position:absolute;left:8px;top:8px;z-index:20;display:flex;gap:4px;pointer-events:auto}
+.stage-dock button{height:28px;padding:0 8px;border-radius:8px;border:1px solid #7ecbff;background:#0d1822ee;color:#b9e4ff;font-size:10px;cursor:pointer}
+.float-prev{position:fixed;right:12px;bottom:84px;z-index:40;width:280px;height:160px;min-width:160px;min-height:90px;background:#000;border:1px solid #7ecbff;border-radius:10px;overflow:hidden;box-shadow:0 8px 24px #000a;display:none}
+.float-prev.show{display:block}
+.float-prev video,.float-prev canvas{width:100%;height:100%;object-fit:contain;background:#000;pointer-events:none}
+.float-bar{position:absolute;left:0;right:0;top:0;height:24px;background:#0d1822cc;color:#b9e4ff;font-size:10px;display:flex;align-items:center;justify-content:space-between;padding:0 8px;cursor:move;z-index:2}
+.float-bar button{background:none;border:0;color:#b9e4ff;cursor:pointer;font-size:12px}
+.float-res{position:absolute;right:0;bottom:0;width:16px;height:16px;background:#7ecbff;cursor:nwse-resize;z-index:3}
 .stage-btns{position:absolute;right:8px;top:8px;z-index:6;display:flex;gap:4px}
 .stage-btns button{height:26px;padding:0 8px;border-radius:8px;border:1px solid #7ecbff;background:#0d1822cc;color:#b9e4ff;font-size:9px;cursor:pointer}
 .studio:fullscreen,.studio:-webkit-full-screen{max-height:100vh;aspect-ratio:auto;border-radius:0;width:100%;height:100%}
@@ -109,15 +117,19 @@ video.preview{width:100%;border-radius:12px;background:#000;max-height:360px}
   <div class="studio" id="stageBox">
     <video id="cam" class="raw" playsinline muted></video>
     <canvas id="stage"></canvas>
-    <button class="hide-btn" id="btnHide">SHOW</button>
-    <div class="stage-btns">
-      <button id="btnFs" type="button">Fullscreen</button>
-      <button id="btnPop" type="button">Preview 2</button>
+    <div class="stage-dock" id="stageDock">
+      <button type="button" id="btnHide">HIDE</button>
+      <button type="button" id="btnFs">Full</button>
+      <button type="button" id="btnPop">Float</button>
     </div>
     <div class="timer" id="recTimer">00:00 / 03:00</div>
     <div class="count" id="count"></div>
   </div>
   <div class="rec-row"><button class="rec-btn" id="recBtn"></button></div>
+  <div class="row" style="margin-top:6px">
+    <button class="btn" id="btnFs2">Full</button>
+    <button class="btn" id="btnPop2">Float</button>
+  </div>
   <div class="gifts" id="giftsBar">
     <div class="gift" data-gift="trandafiri"><span>🌹</span>x10</div>
     <div class="gift" data-gift="gogoasa"><span>🍩</span>gogoașă</div>
@@ -179,6 +191,11 @@ video.preview{width:100%;border-radius:12px;background:#000;max-height:360px}
   <button data-go="studio">Tribună</button>
   <button data-go="feed">Clipuri</button>
 </nav>
+<div class="float-prev" id="floatPrev">
+  <div class="float-bar" id="floatBar"><span>Preview</span><button type="button" id="floatClose">✕</button></div>
+  <video id="floatVid" autoplay muted playsinline></video>
+  <div class="float-res" id="floatRes"></div>
+</div>
 <div class="toast" id="toast"></div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js"></script>
@@ -721,73 +738,111 @@ $("btnHide").onclick=()=>{
   $("giftsBar").classList.toggle("hide", S.hideUi);
   $("scenes").style.display=S.hideUi?"none":"flex";
   const mp=$("maskPanel"); if(mp) mp.style.display=S.hideUi?"none":"";
+  const extra=$("btnFs2") && $("btnFs2").parentElement;
+  if(extra && extra.classList.contains("row")) extra.style.display=S.hideUi?"none":"";
   $("btnHide").textContent=S.hideUi?"SHOW":"HIDE";
+  $("stageDock").style.display="flex";
 };
-function isFs(){
-  return document.fullscreenElement===$("stageBox") || document.webkitFullscreenElement===$("stageBox");
+function stageStream(){
+  try{
+    if(!S.outStream || !S.outStream.active) S.outStream=canvas.captureStream(30);
+  }catch(e){ S.outStream=null; }
+  return S.outStream;
 }
-$("btnFs").onclick=async()=>{
+function isFs(){
+  const el=$("stageBox");
+  return document.fullscreenElement===el || document.webkitFullscreenElement===el;
+}
+function syncProjBtns(){
+  const on=isFs();
+  const b=$("btnFs"); if(b){ b.textContent=on?"Ieși":"Full"; b.classList.toggle("on",on); }
+  const b2=$("btnFs2"); if(b2){ b2.textContent=on?"Ieși Full":"Full"; b2.classList.toggle("on",on); }
+  const fl=$("floatPrev") && $("floatPrev").classList.contains("show");
+  const p=$("btnPop"); if(p){ p.textContent=fl?"Float ON":"Float"; p.classList.toggle("on",fl); }
+  const p2=$("btnPop2"); if(p2){ p2.textContent=fl?"Închide Float":"Float"; p2.classList.toggle("on",fl); }
+}
+async function toggleStageFs(){
   const el=$("stageBox");
   try{
     if(isFs()){
       if(document.exitFullscreen) await document.exitFullscreen();
       else if(document.webkitExitFullscreen) document.webkitExitFullscreen();
-      $("btnFs").textContent="Fullscreen";
     } else {
-      if(el.requestFullscreen) await el.requestFullscreen();
-      else if(el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-      $("btnFs").textContent="Ieși FS";
+      const fn=el.requestFullscreen||el.webkitRequestFullscreen;
+      if(!fn){ toast("Fără Fullscreen în acest browser"); return; }
+      await fn.call(el);
     }
-  }catch(e){ toast("Fullscreen blocat de browser"); }
-};
-document.addEventListener("fullscreenchange",()=>{ $("btnFs").textContent=isFs()?"Ieși FS":"Fullscreen"; });
-document.addEventListener("webkitfullscreenchange",()=>{ $("btnFs").textContent=isFs()?"Ieși FS":"Fullscreen"; });
-function closePop(){
-  try{ if(S.popWin && !S.popWin.closed) S.popWin.close(); }catch(e){}
-  S.popWin=null; S.popCtx=null;
-  $("btnPop").textContent="Preview 2";
-  $("btnPop").classList.remove("on");
+  }catch(e){ toast("Fullscreen blocat"); }
+  $("stageDock").style.display="flex";
+  syncProjBtns();
 }
-function openPop(){
-  const w=window.open("","nervo_preview","popup=yes,width=900,height=560");
-  if(!w){ toast("Permite pop-up-uri pentru Preview 2"); return; }
-  S.popWin=w;
-  w.document.open();
-  w.document.write("<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>Nervobiții — Preview</title>");
-  w.document.write("<style>*{margin:0;padding:0}html,body{background:#000;height:100%;overflow:hidden}canvas{width:100%;height:100%;object-fit:contain;background:#000}.bar{position:fixed;top:8px;right:8px;z-index:2}button{background:#0d1822cc;color:#b9e4ff;border:1px solid #7ecbff;border-radius:8px;padding:6px 10px;cursor:pointer}</style></head>");
-  w.document.write("<body><canvas id=\"p\"></canvas><div class=\"bar\"><button id=\"fs\">Fullscreen</button></div></body></html>");
-  w.document.close();
-  w.onload=()=>{
-    try{
-      const b=w.document.getElementById("fs");
-      if(b) b.onclick=()=>{
-        if(w.document.fullscreenElement) w.document.exitFullscreen();
-        else w.document.documentElement.requestFullscreen();
-      };
-    }catch(e){}
-  };
-  S.popCtx=null;
-  $("btnPop").textContent="Închide Preview";
-  $("btnPop").classList.add("on");
-  toast("Trage fereastra Preview pe monitorul 2, apoi Fullscreen acolo");
+document.addEventListener("fullscreenchange",()=>{ $("stageDock").style.display="flex"; syncProjBtns(); });
+document.addEventListener("webkitfullscreenchange",()=>{ $("stageDock").style.display="flex"; syncProjBtns(); });
+function closeFloat(){
+  const box=$("floatPrev");
+  if(box) box.classList.remove("show");
+  const v=$("floatVid");
+  if(v) v.srcObject=null;
+  syncProjBtns();
+}
+function openFloat(){
+  const box=$("floatPrev");
+  const v=$("floatVid");
+  const s=stageStream();
+  if(!s){ toast("Deschide Tribuna / camera întâi"); return; }
+  v.srcObject=s;
+  v.play().catch(()=>{});
+  box.classList.add("show");
+  syncProjBtns();
+  toast("Preview plutitor: trage bara, colț albastru = scale");
+}
+function toggleFloat(){
+  if($("floatPrev").classList.contains("show")) closeFloat();
+  else openFloat();
 }
 function pushPopPreview(){
-  if(!S.popWin) return;
-  try{
-    if(S.popWin.closed){ closePop(); return; }
-    const pc=S.popWin.document.getElementById("p");
-    if(!pc) return;
-    if(pc.width!==canvas.width) pc.width=canvas.width;
-    if(pc.height!==canvas.height) pc.height=canvas.height;
-    const pctx=pc.getContext("2d");
-    pctx.drawImage(canvas,0,0);
-  }catch(e){}
+  const box=$("floatPrev");
+  if(!box || !box.classList.contains("show")) return;
+  const v=$("floatVid");
+  if(v && !v.srcObject){
+    const s=stageStream();
+    if(s){ v.srcObject=s; v.play().catch(()=>{}); }
+  }
 }
-$("btnPop").onclick=()=>{
-  if(S.popWin && !S.popWin.closed) closePop();
-  else openPop();
-};
-window.addEventListener("beforeunload", closePop);
+(function(){
+  const box=$("floatPrev"), bar=$("floatBar"), res=$("floatRes");
+  if(!box||!bar||!res) return;
+  let drag=null, resize=null;
+  bar.addEventListener("pointerdown",e=>{
+    if(e.target.id==="floatClose") return;
+    drag={x:e.clientX,y:e.clientY,l:box.offsetLeft,t:box.offsetTop};
+    bar.setPointerCapture(e.pointerId);
+  });
+  bar.addEventListener("pointermove",e=>{
+    if(!drag) return;
+    box.style.left=(drag.l+e.clientX-drag.x)+"px";
+    box.style.top=(drag.t+e.clientY-drag.y)+"px";
+    box.style.right="auto"; box.style.bottom="auto";
+  });
+  bar.addEventListener("pointerup",()=>{ drag=null; });
+  res.addEventListener("pointerdown",e=>{
+    resize={x:e.clientX,y:e.clientY,w:box.offsetWidth,h:box.offsetHeight};
+    res.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  res.addEventListener("pointermove",e=>{
+    if(!resize) return;
+    box.style.width=Math.max(160, resize.w+e.clientX-resize.x)+"px";
+    box.style.height=Math.max(90, resize.h+e.clientY-resize.y)+"px";
+  });
+  res.addEventListener("pointerup",()=>{ resize=null; });
+})();
+$("btnFs").onclick=toggleStageFs;
+if($("btnFs2")) $("btnFs2").onclick=toggleStageFs;
+$("btnPop").onclick=toggleFloat;
+if($("btnPop2")) $("btnPop2").onclick=toggleFloat;
+if($("floatClose")) $("floatClose").onclick=closeFloat;
+window.addEventListener("beforeunload", closeFloat);
 $("btnMic").onclick=()=>{
   S.mic=!S.mic; if(S.stream) S.stream.getAudioTracks().forEach(t=>t.enabled=S.mic);
   $("btnMic").textContent=S.mic?"🎙 Mic ON":"🎙 Mic OFF";
